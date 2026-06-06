@@ -48,6 +48,43 @@
     }
     .key { color: #93c5fd; }
     .value { color: #f9fafb; }
+    #cycleBox {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.14);
+      font-size: 12px;
+      line-height: 1.45;
+      color: #dbeafe;
+    }
+    #cycleBox strong {
+      color: #ffffff;
+      font-weight: 800;
+    }
+    #phaseDesc {
+      margin-top: 5px;
+      color: #fde68a;
+      font-weight: 700;
+    }
+    .timeline {
+      margin-top: 7px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .step {
+      padding: 4px 5px;
+      border-radius: 7px;
+      background: rgba(148, 163, 184, 0.16);
+      color: #cbd5e1;
+      text-align: center;
+      font-size: 10px;
+      line-height: 1.25;
+    }
+    .step.active {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset;
+    }
     #controls {
       position: fixed;
       left: 18px;
@@ -139,6 +176,26 @@
         margin: 2px 0;
         font-size: 11px;
       }
+      #cycleBox {
+        margin-top: 7px;
+        padding-top: 7px;
+        font-size: 10.5px;
+        line-height: 1.32;
+      }
+      #cycleSummary {
+        display: none;
+      }
+      #phaseDesc {
+        margin-top: 3px;
+      }
+      .timeline {
+        margin-top: 5px;
+        gap: 3px;
+      }
+      .step {
+        padding: 3px 4px;
+        font-size: 9px;
+      }
       #hint {
         left: 10px;
         right: 82px;
@@ -191,6 +248,16 @@
   <div class="row"><div class="key">Simulation</div><div class="value" id="simStatus"></div></div>
   <div class="row"><div class="key">Vibration</div><div class="value" id="vibStatus"></div></div>
   <div class="row"><div class="key">Unbalance</div><div class="value" id="ubStatus"></div></div>
+  <div id="cycleBox">
+    <div><strong>Demo 1 cycle:</strong> <span id="cycleSummary">68 s compressed course: Wash 0-30 s, Rinse 30-40 s, Spin 1 40-48 s, Spin 2 48-68 s.</span></div>
+    <div id="phaseDesc"></div>
+    <div class="timeline">
+      <div class="step" id="stepWash">WASH<br>±50 rpm</div>
+      <div class="step" id="stepRinse">RINSE<br>80 rpm</div>
+      <div class="step" id="stepSpin1">SPIN 1<br>0→400</div>
+      <div class="step" id="stepSpin2">SPIN 2<br>400→1200</div>
+    </div>
+  </div>
 </div>
 <div id="hint">Drag: rotate · Pinch: zoom · Two-finger drag: move</div>
 <div id="zoomControls">
@@ -496,6 +563,19 @@ if (!window.THREE) {
   const zoomInBtn = document.getElementById('zoomInBtn');
   const zoomOutBtn = document.getElementById('zoomOutBtn');
   const fitBtn = document.getElementById('fitBtn');
+  const phaseDesc = document.getElementById('phaseDesc');
+  const phaseSteps = {
+    WASH: document.getElementById('stepWash'),
+    RINSE: document.getElementById('stepRinse'),
+    SPIN1: document.getElementById('stepSpin1'),
+    SPIN2: document.getElementById('stepSpin2'),
+  };
+  const phaseInfo = {
+    WASH: 'Current: WASH · DD drum alternates CW/CCW at about ±50 rpm.',
+    RINSE: 'Current: RINSE · Drum runs forward at about 80 rpm.',
+    SPIN1: 'Current: SPIN 1 · Ramp-up from 0 to 400 rpm.',
+    SPIN2: 'Current: SPIN 2 · High-speed spin ramps 400 to 1200 rpm.',
+  };
   playBtn.addEventListener('click', () => {
     playing = !playing;
     playBtn.textContent = playing ? 'Pause' : 'Play';
@@ -570,6 +650,10 @@ if (!window.THREE) {
       `x=${(s.x*1000).toFixed(3)} mm, z=${(s.z*1000).toFixed(3)} mm, total=${vib.toFixed(3)} mm (${SIM.visualScale.toFixed(0)}x visual)`;
     document.getElementById('ubStatus').textContent =
       `actual=${p.unbalanceMassG.toFixed(0)} g | estimated=${s.m.toFixed(1)} g | coaxial DD rotor`;
+    phaseDesc.textContent = phaseInfo[s.phase] || `Current: ${s.phase}`;
+    for (const [phase, el] of Object.entries(phaseSteps)) {
+      el.classList.toggle('active', phase === s.phase);
+    }
     timeReadout.textContent = `${s.t.toFixed(1)} s`;
     slider.value = String(Math.round(1000 * (s.t - SIM.t[0]) / (SIM.t[SIM.t.length - 1] - SIM.t[0])));
   }
