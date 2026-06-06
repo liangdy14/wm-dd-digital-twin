@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>DD Washer Digital Twin</title>
   <style>
     html, body {
@@ -13,11 +13,14 @@
       background: #111827;
       color: #f9fafb;
       font-family: Arial, Helvetica, sans-serif;
+      touch-action: none;
+      overscroll-behavior: none;
     }
     #viewer {
       width: 100vw;
       height: 100vh;
       display: block;
+      touch-action: none;
     }
     #hud {
       position: fixed;
@@ -82,6 +85,29 @@
       background: rgba(17, 24, 39, 0.62);
       font-size: 12px;
     }
+    #zoomControls {
+      position: fixed;
+      right: 18px;
+      bottom: 86px;
+      display: grid;
+      gap: 8px;
+    }
+    .zoom-btn {
+      width: 48px;
+      height: 38px;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      background: rgba(17, 24, 39, 0.78);
+      color: #f9fafb;
+      font-size: 18px;
+      font-weight: 800;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+    }
+    .zoom-btn.fit {
+      font-size: 11px;
+      letter-spacing: 0.3px;
+    }
     #loadError {
       display: none;
       position: fixed;
@@ -93,6 +119,66 @@
       background: #111827;
       text-align: center;
       line-height: 1.5;
+    }
+    @media (max-width: 720px) {
+      #hud {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        max-width: none;
+        padding: 10px 12px;
+        border-radius: 12px;
+      }
+      #hud h1 {
+        font-size: 14px;
+        margin-bottom: 5px;
+      }
+      .row {
+        grid-template-columns: 74px 1fr;
+        gap: 6px;
+        margin: 2px 0;
+        font-size: 11px;
+      }
+      #hint {
+        left: 10px;
+        right: 82px;
+        top: auto;
+        bottom: 72px;
+        padding: 7px 10px;
+        font-size: 11px;
+        text-align: center;
+      }
+      #zoomControls {
+        right: 10px;
+        bottom: 72px;
+        gap: 6px;
+      }
+      .zoom-btn {
+        width: 50px;
+        height: 34px;
+        border-radius: 10px;
+        font-size: 17px;
+      }
+      .zoom-btn.fit {
+        font-size: 10px;
+      }
+      #controls {
+        left: 10px;
+        right: 10px;
+        bottom: max(10px, env(safe-area-inset-bottom));
+        grid-template-columns: 64px 1fr 54px;
+        gap: 8px;
+        padding: 9px 10px;
+      }
+      button {
+        height: 32px;
+        border-radius: 9px;
+        font-size: 12px;
+      }
+      #timeReadout {
+        font-size: 12px;
+        text-align: right;
+      }
     }
   </style>
 </head>
@@ -106,7 +192,12 @@
   <div class="row"><div class="key">Vibration</div><div class="value" id="vibStatus"></div></div>
   <div class="row"><div class="key">Unbalance</div><div class="value" id="ubStatus"></div></div>
 </div>
-<div id="hint">Drag to orbit camera. Wheel to zoom.</div>
+<div id="hint">Drag: rotate · Pinch: zoom · Two-finger drag: move</div>
+<div id="zoomControls">
+  <button id="zoomInBtn" class="zoom-btn" type="button">+</button>
+  <button id="fitBtn" class="zoom-btn fit" type="button">FIT</button>
+  <button id="zoomOutBtn" class="zoom-btn" type="button">-</button>
+</div>
 <div id="controls">
   <button id="playBtn">Pause</button>
   <input id="timeSlider" type="range" min="0" max="1000" value="0">
@@ -143,11 +234,15 @@ if (!window.THREE) {
   scene.fog = new THREE.Fog(0x111827, 1.5, 4.5);
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 10);
-  let camRadius = 1.52;
+  const isMobile = window.matchMedia('(max-width: 720px)').matches;
+  camera.fov = isMobile ? 57 : 45;
+  camera.updateProjectionMatrix();
+  let camRadius = isMobile ? 3.00 : 1.72;
   let camAz = -2.33;
-  let camEl = 0.40;
+  let camEl = isMobile ? 0.34 : 0.40;
 
   const target = new THREE.Vector3(0, p.drumCenterHeight, 0);
+  const targetBaseY = p.drumCenterHeight;
   function updateCamera() {
     const rCos = camRadius * Math.cos(camEl);
     camera.position.set(
@@ -398,6 +493,9 @@ if (!window.THREE) {
   const slider = document.getElementById('timeSlider');
   const playBtn = document.getElementById('playBtn');
   const timeReadout = document.getElementById('timeReadout');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const fitBtn = document.getElementById('fitBtn');
   playBtn.addEventListener('click', () => {
     playing = !playing;
     playBtn.textContent = playing ? 'Pause' : 'Play';
@@ -489,31 +587,120 @@ if (!window.THREE) {
   let dragging = false;
   let lastX = 0;
   let lastY = 0;
+  const pointers = new Map();
+  let lastPinchDist = 0;
+  let lastPinchCenter = null;
+
+  function clampCamera() {
+    camRadius = Math.max(0.55, Math.min(5.00, camRadius));
+    camEl = Math.max(-0.18, Math.min(1.10, camEl));
+    target.x = Math.max(-0.35, Math.min(0.35, target.x));
+    target.y = Math.max(0.18, Math.min(0.86, target.y));
+  }
+
+  function pinchState() {
+    const pts = Array.from(pointers.values());
+    if (pts.length < 2) return null;
+    const a = pts[0];
+    const b = pts[1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return {
+      dist: Math.hypot(dx, dy),
+      center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    };
+  }
+
   canvas.addEventListener('pointerdown', (e) => {
-    dragging = true;
+    e.preventDefault();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    dragging = pointers.size === 1;
     lastX = e.clientX;
     lastY = e.clientY;
+    const pinch = pinchState();
+    if (pinch) {
+      lastPinchDist = pinch.dist;
+      lastPinchCenter = pinch.center;
+    }
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    e.preventDefault();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) {
+      const pinch = pinchState();
+      if (pinch && lastPinchDist > 0 && lastPinchCenter) {
+        const zoomRatio = lastPinchDist / Math.max(pinch.dist, 1);
+        camRadius *= zoomRatio;
+        const dx = pinch.center.x - lastPinchCenter.x;
+        const dy = pinch.center.y - lastPinchCenter.y;
+        target.x -= dx * camRadius * 0.00055;
+        target.y += dy * camRadius * 0.00055;
+        clampCamera();
+        updateCamera();
+        lastPinchDist = pinch.dist;
+        lastPinchCenter = pinch.center;
+      }
+      return;
+    }
     if (!dragging) return;
     const dx = e.clientX - lastX;
     const dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
     camAz -= dx * 0.006;
-    camEl = Math.max(-0.12, Math.min(0.95, camEl + dy * 0.004));
+    camEl += dy * 0.004;
+    clampCamera();
     updateCamera();
   });
   canvas.addEventListener('pointerup', (e) => {
-    dragging = false;
+    e.preventDefault();
+    pointers.delete(e.pointerId);
+    dragging = pointers.size === 1;
+    const remaining = Array.from(pointers.values());
+    if (remaining.length === 1) {
+      lastX = remaining[0].x;
+      lastY = remaining[0].y;
+    }
+    const pinch = pinchState();
+    lastPinchDist = pinch ? pinch.dist : 0;
+    lastPinchCenter = pinch ? pinch.center : null;
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+  });
+  canvas.addEventListener('pointercancel', (e) => {
+    pointers.delete(e.pointerId);
+    dragging = false;
+    lastPinchDist = 0;
+    lastPinchCenter = null;
   });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    camRadius = Math.max(0.85, Math.min(2.7, camRadius * (1 + e.deltaY * 0.001)));
+    camRadius *= (1 + e.deltaY * 0.001);
+    clampCamera();
     updateCamera();
   }, { passive: false });
+
+  function resetView() {
+    camRadius = isMobile ? 3.00 : 1.72;
+    camAz = -2.33;
+    camEl = isMobile ? 0.34 : 0.40;
+    target.set(0, targetBaseY, 0);
+    updateCamera();
+  }
+
+  zoomInBtn.addEventListener('click', () => {
+    camRadius *= 0.78;
+    clampCamera();
+    updateCamera();
+  });
+  zoomOutBtn.addEventListener('click', () => {
+    camRadius *= 1.28;
+    clampCamera();
+    updateCamera();
+  });
+  fitBtn.addEventListener('click', resetView);
+  window.addEventListener('dblclick', resetView);
 
   function animate(now) {
     const dt = Math.min(0.05, (now - lastReal) / 1000);
