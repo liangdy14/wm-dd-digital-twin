@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Washer Digital Twin - Loop 1 Verification</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+    }
+    main {
+      width: min(1180px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 5vw, 40px);
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: clamp(18px, 3vw, 26px);
+      color: #bfdbfe;
+    }
+    p, li {
+      color: #cbd5e1;
+      font-size: 15px;
+    }
+    a {
+      color: #93c5fd;
+    }
+    .card {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.72);
+    }
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .links a {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(37, 99, 235, 0.22);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    code {
+      color: #fde68a;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Washer Digital Twin - Loop 1 Verification</h1>
+  <p>
+    These artifacts check model credibility before real washer experiment data is available:
+    moving laundry assumptions, cycle duration effects, numerical convergence, and rebalance speed-limit policy.
+  </p>
+  <div class="links">
+    <a href="./index.html">Open 3D viewer</a>
+    <a href="./simulation-report.png">Main simulation report</a>
+    <a href="./run-metadata.json">Run metadata</a>
+    <a href="./loop1-summary.json">Loop 1 JSON</a>
+  </div>
+
+  <section class="card">
+    <h2>1. Moving Laundry Assumption Sweep</h2>
+    <p>
+      Compares hand-tuned laundry eccentricity against MuJoCo-derived good, mean, P50, and P90 residual eccentricity cases.
+    </p>
+    <img src="./loop1-laundry-scenarios.png" alt="Loop 1 moving laundry assumption sweep">
+    <div class="links"><a href="./loop1-laundry-scenarios.csv">CSV data</a></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Cycle Duration Sweep</h2>
+    <p>
+      Uses a flag-only 1200 rpm cap to show how longer high-speed holds affect floor load and motor requirements.
+    </p>
+    <img src="./loop1-cycle-requirements.png" alt="Loop 1 cycle duration sweep">
+    <div class="links"><a href="./loop1-cycle-requirements.csv">CSV data</a></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Numerical Convergence</h2>
+    <p>
+      Compares coarse, nominal, and fine solver settings. Use this before trusting small differences between design alternatives.
+    </p>
+    <img src="./loop1-convergence.png" alt="Loop 1 numerical convergence">
+    <div class="links"><a href="./loop1-convergence.csv">CSV data</a></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Rebalance Speed-Limit Policy</h2>
+    <p>
+      Compares 1200 rpm flag-only, 200 rpm cap, and 90 rpm distribution-speed cap for the MuJoCo P90 laundry case.
+    </p>
+    <img src="./loop1-speed-policy.png" alt="Loop 1 rebalance speed-limit policy sweep">
+    <div class="links"><a href="./loop1-speed-policy.csv">CSV data</a></div>
+  </section>
+</main>
+</body>
+</html>

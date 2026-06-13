@@ -1,0 +1,16 @@
+{
+  "run_type": "washing_machine_main_demo",
+  "generated_at_utc": "2026-06-13T02:00:32+00:00",
+  "python": "3.9.6",
+  "git_commit_short": "6288d3c",
+  "git_branch": "master",
+  "numpy_version": "2.0.2",
+  "scipy_version": "1.13.1",
+  "extra": {
+    "script": "main_wm.py",
+    "cycle_total_s": 68.0,
+    "laundry_unbalance_fraction": 0.04,
+    "fixed_unbalance_kg": 0.12,
+    "torque_ripple_enabled": true
+  }
+}
